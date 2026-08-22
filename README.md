@@ -18,23 +18,13 @@ no backend, no wallet connect.
 
 ## ✨ Features
 
-- **TOKEN** tab — contract address with COPY, live mint account from the chain
-  (supply, decimals, mint/freeze authority — revocation confirmed on-chain).
-- **TRADE** tab — swap links (Raydium, DexScreener, Birdeye, defined) straight
-  from the on-chain config, opening in your browser.
-- **LEEKS** tab — every content account sorted by timestamp; each mirror has
-  OPEN and COPY buttons.
-- **POLL** tab — vote bars computed from real token-account balances, vote
-  addresses derived via PDA (COPY button), countdown while live.
+- **TOKEN** tab — live mint account from the chain (supply, decimals, mint/freeze authority — revocation confirmed on-chain).
+- **TRADE** tab — swap links (Raydium, DexScreener, Birdeye, defined) straightfrom the on-chain config
+- **LEEKS** tab — every content account sorted by timestamp
+- **POLL** tab — vote bars computed from real token-account balances
 - **ABOUT** tab — on-chain about/mission/FAQ/contact and section flags.
-- **RPC pool with rotation** — same six public endpoints the site uses,
-  health-checked and rotated on failure.
-- **Never blocks the UI** — all RPC work happens in background threads.
-- **Auto-refresh** every 90 s (or hit REFRESH) with a status bar showing the
-  active RPC, counts, and last update.
+- **Auto-refresh** every 90 s (or hit REFRESH)
 - **Portable Windows executable** — `dist\CyberleekViewer.exe`, no Python needed.
-- **Custom icon** — an ode to the original favicon: site mascot, neon ring,
-  CRT grid, green status dot (`make_icon.py`).
 
 ## 💻 How to Use (Easy Way)
 
