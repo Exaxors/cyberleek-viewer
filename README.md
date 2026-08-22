@@ -14,7 +14,7 @@ no backend, no wallet connect.
 
 *Poll tab: live vote bars from token balances, vote addresses, countdown.*
 
-![Poll tab](screenshots/POLSS_UI.png)
+![Poll tab](screenshots/POLLS_TAB_UI.png)
 
 ## ✨ Features
 
