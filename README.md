@@ -3,7 +3,7 @@
 A desktop **chain viewer** for the CYBERLEEK site, built with Python + customtkinter.
 It reads everything straight from **Solana mainnet RPC** — no website, no browser,
 no backend, no wallet connect.
-
+<img width="399" height="399" alt="cinema" src="https://github.com/user-attachments/assets/3e11aa89-f697-42ad-a2e4-5b9a8e16b65c" />
 ## Screenshots
 
 *Main UI: token info, trade links, and the on-chain LEEKS list with mirrors.*
