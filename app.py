@@ -49,6 +49,9 @@ FONT_TITLE = ("Courier New", 24, "bold")
 
 AUTO_REFRESH_MS = 90_000
 
+APP_VERSION = "20260822"
+GITHUB_URL = "https://github.com/ZeroHackz/cyberleek-viewer"
+
 ICON_PATH = Path(__file__).resolve().parent / "assets" / "icon.ico"
 
 
@@ -416,6 +419,20 @@ class App(ctk.CTk):
         self._clear(tab)
         wrap = ctk.CTkScrollableFrame(tab, fg_color=C["bg"])
         wrap.pack(fill="both", expand=True)
+
+        ctk.CTkLabel(wrap, text="CYBERLEEKVIEWER", font=("Courier New", 22, "bold"), text_color=C["neon"]).pack(anchor="w", pady=(8, 2))
+        ctk.CTkLabel(wrap, text=f"v{APP_VERSION}  ·  by ZeroHackz", font=FONT_SM, text_color=C["dim"]).pack(anchor="w")
+        ctk.CTkLabel(
+            wrap,
+            text="A desktop chain viewer for the CYBERLEEK site — reads everything straight from "
+            "Solana mainnet RPC. No website, no backend, no wallet connect.",
+            font=FONT_SM, text_color=C["text"], wraplength=840, justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+        ctk.CTkButton(
+            wrap, text="View on GitHub →", font=FONT_SM,
+            fg_color=C["neon"], hover_color=C["border"], text_color="#00050d",
+            command=lambda: self._open(GITHUB_URL),
+        ).pack(anchor="w", pady=(0, 14))
 
         cfg = self.data["config"] or {}
         about = (cfg.get("about") or "").strip()

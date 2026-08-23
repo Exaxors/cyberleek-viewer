@@ -29,7 +29,8 @@ no backend, no wallet connect.
 ## 💻 How to Use (Easy Way)
 
 1. Go to the [**Releases**](https://github.com/ZeroHackz/cyberleek-viewer/releases) page,
-   download the latest `CyberleekViewer.exe` and run it — no Python or dependencies needed.
+   download the latest `CyberleekViewer.zip`, extract it, and run
+   `CyberleekViewer\CyberleekViewer.exe` — no Python or dependencies needed.
 2. Run the application. It fetches on-chain state automatically on startup.
 3. Pick a tab:
    * **TOKEN** — check the mint account.
@@ -52,12 +53,9 @@ no backend, no wallet connect.
    ```bat
    build.bat
    ```
-   The `.exe` will be available in the `dist` folder (`dist\CyberleekViewer.exe`).
-   `dist/` is git-ignored — zip the exe and attach it to a GitHub Release.
-4. To regenerate the icon (from the site mascot + neon treatment):
-   ```bat
-   .venv\Scripts\python make_icon.py
-   ```
+   The app folder lands in `dist\CyberleekViewer\`
+4. Enjoy the view.
+
 
 ## Project layout
 
@@ -68,7 +66,7 @@ cyberleek-viewer/
   make_icon.py       # icon generator
   cyberleek.spec     # PyInstaller spec
   launcher.bat       # first-run setup + launch (no console window)
-  build.bat          # builds dist\CyberleekViewer.exe
+  build.bat          # builds dist\CyberleekViewer\ + auto-zips it
   smoke.py           # headless GUI smoke test
   requirements.txt
   assets/icon.ico    # app + exe icon

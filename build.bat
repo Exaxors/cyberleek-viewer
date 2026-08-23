@@ -21,6 +21,10 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
+echo Cleaning previous build output...
+if exist "dist\CyberleekViewer.exe" del /q "dist\CyberleekViewer.exe"
+if exist "dist\CyberleekViewer.zip" del /q "dist\CyberleekViewer.zip"
+
 echo Building executable...
 ".venv\Scripts\python.exe" -m PyInstaller cyberleek.spec --noconfirm
 if %ERRORLEVEL% NEQ 0 (
@@ -29,9 +33,18 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
+echo Zipping the build folder...
+powershell -NoProfile -Command "Compress-Archive -Path 'dist\CyberleekViewer' -DestinationPath 'dist\CyberleekViewer.zip' -Force"
+if %ERRORLEVEL% NEQ 0 (
+    echo Zipping failed.
+    pause
+    exit /b 1
+)
+
 echo.
 echo Build successful!
-echo The executable can be found in the 'dist' folder: dist\CyberleekViewer.exe
+echo The app folder is at: dist\CyberleekViewer\CyberleekViewer.exe
+echo The release zip is at: dist\CyberleekViewer.zip
 echo.
 pause
 exit /b 0

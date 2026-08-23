@@ -1,5 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Onefile build for the CyberleekViewer chain-viewer GUI.
+# Onedir build for the CyberleekViewer chain-viewer GUI.
+# Onedir (exe + _internal folder) triggers far fewer AV false positives
+# than onefile. Zip the dist folder for release distribution.
 # Reads everything from Solana mainnet RPC; no external services needed at runtime.
 
 a = Analysis(
@@ -23,9 +25,8 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='CyberleekViewer',
     debug=False,
     bootloader_ignore_signals=False,
@@ -40,4 +41,14 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='assets/icon.ico',
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name='CyberleekViewer',
 )
