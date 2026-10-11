@@ -6,6 +6,7 @@ Replicates exactly the queries the site's JS bundle performs:
   * config   -> getAccountInfo(frontend_config PDA) + decode
   * content  -> getProgramAccounts(memcmp "G6JNBZ2BSey", dataSize 7156) + decode
   * polls    -> getProgramAccounts(memcmp "5Qpj1hsHT4k", dataSize 2800) + decode
+  * announcements -> getProgramAccounts(memcmp "NjkxTouaByo") + decode
   * votes    -> PDA(["option", pollId, [idx]]) -> ATA PDA, token balances
 """
 
@@ -31,6 +32,12 @@ CONTENT_DISCRIMINATOR = "G6JNBZ2BSey"
 CONTENT_DATA_SIZE = 7156
 POLL_DISCRIMINATOR = "5Qpj1hsHT4k"
 POLL_DATA_SIZE = 2800
+# off-chain price source (free, no API key): used only for the market cap display
+MARKET_URLS = [
+    "https://api.dexscreener.com/latest/dex/tokens/" + MINT,
+    "https://api.dexscreener.com/token-pairs/v1/solana/" + MINT,
+]
+ANNOUNCEMENT_DISCRIMINATOR = "NjkxTouaByo"  # accounts are zero-padded to 656 B; no size filter needed
 
 TOKEN_PROGRAM = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 ATA_PROGRAM = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
@@ -125,6 +132,19 @@ def decode_content(raw: bytes) -> Optional[dict]:
             url = t.string()
             items = [{"label": url, "url": url}]
         return {"authority": authority, "timestamp": timestamp, "title": title, "items": items}
+    except Exception:
+        return None
+
+
+def decode_announcement(raw: bytes) -> Optional[dict]:
+    """8B discriminator | pubkey | i64 ts | str title | str body | zero padding."""
+    try:
+        t = Reader(raw[8:])
+        authority = t.pubkey()
+        timestamp = t.i64()
+        title = t.string()
+        body = t.string()
+        return {"authority": authority, "timestamp": timestamp, "title": title, "body": body}
     except Exception:
         return None
 
@@ -249,8 +269,10 @@ class RpcClient:
             return None
         return base64.b64decode(value["data"][0])
 
-    def get_program_accounts(self, memcmp: str, data_size: int) -> list[tuple[str, bytes]]:
-        filters = [{"memcmp": {"offset": 0, "bytes": memcmp}}, {"dataSize": data_size}]
+    def get_program_accounts(self, memcmp: str, data_size: Optional[int] = None) -> list[tuple[str, bytes]]:
+        filters: list[dict] = [{"memcmp": {"offset": 0, "bytes": memcmp}}]
+        if data_size is not None:
+            filters.append({"dataSize": data_size})
         result = self.call("getProgramAccounts", [ANCHOR, {"encoding": "base64", "filters": filters}])
         out: list[tuple[str, bytes]] = []
         for acc in result or []:  # type: ignore[union-attr]
@@ -258,11 +280,21 @@ class RpcClient:
         return out
 
     def get_token_balance(self, pubkey: str) -> int:
-        result = self.call("getTokenAccountBalance", [pubkey])
-        value = (result or {}).get("value")  # type: ignore[union-attr]
-        if not value:
+        try:
+            result = self.call("getTokenAccountBalance", [pubkey])
+            value = (result or {}).get("value")  # type: ignore[union-attr]
+            if not value:
+                return 0
+            return int(value["amount"])
+        except Exception:
+            #se a conta de tokens ainda nao existir (ex: opcao com 0 votos), 
+            #o RPC devolve erro. apanhamos a excecao e assumimos 0.
             return 0
-        return int(value["amount"])
+
+    def get_json(self, url: str) -> object:
+        r = self._http.get(url)
+        r.raise_for_status()
+        return r.json()
 
     def get_mint_info(self) -> Optional[dict]:
         result = self.call("getAccountInfo", [MINT, {"encoding": "jsonParsed"}])
@@ -298,14 +330,70 @@ def format_amount(raw: int, decimals: int = DECIMALS) -> str:
     return s
 
 
+def _num(v) -> Optional[float]:
+    try:
+        return float(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_market(rpc: RpcClient, supply: Optional[float] = None) -> Optional[dict]:
+    """Price / market cap for MINT from DexScreener (off-chain). Returns None on any failure.
+
+    Only pairs whose *base token is exactly MINT* on Solana are used, so look-alike
+    tokens with the same name can never leak in. The most liquid pair wins."""
+    for url in MARKET_URLS:
+        try:
+            data = rpc.get_json(url)
+        except Exception:
+            continue
+        pairs = data.get("pairs") if isinstance(data, dict) else data
+        best, best_liq = None, -1.0
+        for p in pairs or []:
+            if not isinstance(p, dict):
+                continue
+            if p.get("chainId") != "solana" or (p.get("baseToken") or {}).get("address") != MINT:
+                continue
+            liq = _num((p.get("liquidity") or {}).get("usd")) or 0.0
+            if liq > best_liq:
+                best, best_liq = p, liq
+        if best is None:
+            continue
+        price = _num(best.get("priceUsd"))
+        mcap = _num(best.get("marketCap")) or _num(best.get("fdv"))
+        if mcap is None and price is not None and supply:
+            mcap = price * supply
+        return {
+            "price_usd": price,
+            "market_cap": mcap,
+            "liquidity_usd": best_liq if best_liq >= 0 else None,
+            "volume_24h": _num((best.get("volume") or {}).get("h24")),
+            "change_24h": _num((best.get("priceChange") or {}).get("h24")),
+            "dex": best.get("dexId"),
+            "url": best.get("url"),
+        }
+    return None
+
+
 def poll_tally(rpc: RpcClient, poll: dict) -> tuple[list[int], int]:
     """Per-choice balances + total. Uses on-chain final balances when the poll
     is fully finalized, otherwise reads live token-account balances."""
     n = len(poll["choices"])
-    if poll["is_finalized"] and poll["final_balances"]:
+    
+    # usar all() para garantir que TODAS as opções estão finalized
+    if all(poll["is_finalized"]) and poll.get("final_balances"):
         balances = poll["final_balances"][:n]
     else:
-        balances = [rpc.get_token_balance(vote_address(poll["poll_id"], i)) for i in range(n)]
+        balances = []
+        for i in range(n):
+            try:
+                # tenta ir buscar o saldo em tempo real à rede Solana
+                bal = rpc.get_token_balance(vote_address(poll["poll_id"], i))
+                balances.append(bal)
+            except Exception:
+                # se der erro (ex: a conta de tokens da opção ainda não existe porque tem 0 votos), assume 0
+                balances.append(0)
+                
     return balances, sum(balances)
 
 
@@ -333,13 +421,31 @@ def fetch_all(rpc: Optional[RpcClient] = None) -> dict:
                 polls.append(poll)
         polls.sort(key=lambda x: x["timestamp"], reverse=True)
 
+        announcements: list[dict] = []
+        for pk, raw in rpc.get_program_accounts(ANNOUNCEMENT_DISCRIMINATOR):
+            ann = decode_announcement(raw)
+            if ann:
+                ann["account"] = pk
+                announcements.append(ann)
+        announcements.sort(key=lambda x: x["timestamp"], reverse=True)
+
         mint_info = rpc.get_mint_info()
+
+        market = None
+        try:
+            supply = int((mint_info or {}).get("supply", 0)) / 10 ** int((mint_info or {}).get("decimals", DECIMALS))
+            market = fetch_market(rpc, supply or None)
+        except Exception:
+            market = None  # price service down must never break the on-chain refresh
+
         return {
             "rpc": rpc.active,
             "config": config,
             "content": content,
             "polls": polls,
+            "announcements": announcements,
             "mint_info": mint_info,
+            "market": market,
         }
     finally:
         if own:
@@ -349,18 +455,45 @@ def fetch_all(rpc: Optional[RpcClient] = None) -> dict:
 if __name__ == "__main__":
     import json
 
-    data = fetch_all()
-    print(json.dumps(
-        {
-            "rpc": data["rpc"],
-            "mint_info": data["mint_info"],
-            "config_authority": (data["config"] or {}).get("authority"),
-            "swap_links": [(s["name"], s["enabled"]) for s in (data["config"] or {}).get("swap_links", [])],
-            "sections": [(s["id"], s["visible"], s["order"]) for s in (data["config"] or {}).get("sections", [])],
-            "content_count": len(data["content"]),
-            "content": [c["title"] for c in data["content"]],
-            "poll_count": len(data["polls"]),
-            "polls": [p["title"] for p in data["polls"]],
-        },
-        indent=2,
-    ))
+    # instanciar o RPC Client aqui para poder usá-lo no poll_tally
+    rpc = RpcClient()
+    try:
+        data = fetch_all(rpc)
+        
+        # processar as votações (polls) para incluir as percentagens
+        polls_output = []
+        for poll in data["polls"]:
+            # buscar os saldos de cada opção e o total de votos
+            balances, total = poll_tally(rpc, poll)
+            
+            choices_data = []
+            for idx, choice in enumerate(poll["choices"]):
+                balance = balances[idx] if idx < len(balances) else 0
+                
+                # calcula a percentagem, protegendo contra divisão por zero
+                percentage = (balance / total * 100) if total > 0 else 0.0
+                
+                choices_data.append({
+                    "choice": choice,
+                    "votes": format_amount(balance),
+                    "percentage": f"{percentage:.1f}%"
+                })
+            
+            polls_output.append({
+                "title": poll["title"],
+                "status": "ENDED" if poll.get("is_finalized") and all(poll["is_finalized"]) else "LIVE",
+                "total_donated": format_amount(total),
+                "options": choices_data
+            })
+
+        # imprimir o JSON final com os novos dados
+        print(json.dumps(
+            {
+                "rpc": data["rpc"],
+                "poll_count": len(data["polls"]),
+                "polls": polls_output,
+            },
+            indent=2,
+        ))
+    finally:
+        rpc.close()

@@ -1,7 +1,7 @@
 """CYBERLEEK chain viewer — customtkinter GUI.
 
 Reads everything straight from Solana mainnet RPC; no website dependency.
-Sections mirror the site: TOKEN / TRADE / LEEKS / POLL / ABOUT.
+Sections mirror the site: MARKET / TOKEN / TRADE / LEEKS / POLL / ANNOUNCEMENTS / ABOUT.
 """
 
 from __future__ import annotations
@@ -46,11 +46,12 @@ FONT_SM = ("Courier New", 11)
 FONT_TINY = ("Courier New", 10)
 FONT_BOLD = ("Courier New", 13, "bold")
 FONT_TITLE = ("Courier New", 24, "bold")
+FONT_HUGE = ("Courier New", 40, "bold")
+FONT_LARGE = ("Courier New", 26, "bold")
 
 AUTO_REFRESH_MS = 90_000
 
-APP_VERSION = "20260822"
-GITHUB_URL = "https://github.com/ZeroHackz/cyberleek-viewer"
+APP_VERSION = "20261011"
 
 ICON_PATH = Path(__file__).resolve().parent / "assets" / "icon.ico"
 
@@ -61,6 +62,21 @@ def short(pubkey: str) -> str:
 
 def fmt_ts(ts: int) -> str:
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def fmt_usd(v) -> str:
+    if v is None:
+        return "n/a"
+    for limit, suffix in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
+        if abs(v) >= limit:
+            return f"${v / limit:,.2f}{suffix}"
+    return f"${v:,.2f}"
+
+
+def fmt_price(v) -> str:
+    if v is None:
+        return "n/a"
+    return f"${v:,.4f}" if v >= 1 else "$" + f"{v:.8f}".rstrip("0")
 
 
 def safe_url(url: str) -> bool:
@@ -129,7 +145,7 @@ class App(ctk.CTk):
 
         self.tabs = ctk.CTkTabview(self, fg_color=C["bg"])
         self.tabs.pack(fill="both", expand=True, padx=16, pady=6)
-        for name in ("TOKEN", "TRADE", "LEEKS", "POLL", "ABOUT"):
+        for name in ("MARKET", "TOKEN", "TRADE", "LEEKS", "POLL", "ANNOUNCEMENTS", "ABOUT"):
             frame = self.tabs.add(name)
             frame.configure(fg_color=C["bg"])
 
@@ -178,16 +194,20 @@ class App(ctk.CTk):
             return
         self.data = result
         self.status.configure(text="system online", text_color=C["green"])
+        self._render_market()
         self._render_token()
         self._render_trade()
         self._render_leeks()
         self._render_poll()
+        self._render_announcements()
         self._render_about()
         n_content = len(result["content"])
         n_polls = len(result["polls"])
+        n_ann = len(result.get("announcements", []))
+        mcap = fmt_usd((result.get("market") or {}).get("market_cap"))
         self.statusbar.configure(
             text=f"RPC: {result['rpc']}  |  config: {short(result['config']['authority'])}  |  "
-            f"{n_content} leeks  |  {n_polls} poll(s)  |  updated {fmt_ts(int(datetime.now(timezone.utc).timestamp()))}"
+            f"mcap {mcap}  |  {n_content} leeks  |  {n_polls} poll(s)  |  {n_ann} announcement(s)  |  updated {fmt_ts(int(datetime.now(timezone.utc).timestamp()))}"
         )
 
     def _auto_refresh(self):
@@ -233,6 +253,60 @@ class App(ctk.CTk):
             webbrowser.open(url)
 
     # ------------------------------------------------------------ tabs
+
+    def _render_market(self):
+        tab = self.tabs.tab("MARKET")
+        self._clear(tab)
+        wrap = ctk.CTkScrollableFrame(tab, fg_color=C["bg"])
+        wrap.pack(fill="both", expand=True)
+
+        ctk.CTkLabel(wrap, text="◈ MARKET (DexScreener, off-chain)", font=FONT_BOLD, text_color=C["green"]).pack(anchor="w", pady=(8, 4))
+        market = self.data.get("market")
+        if not market:
+            ctk.CTkLabel(
+                wrap, text="market data unavailable (price service not reachable)",
+                font=("Courier New", 16), text_color=C["dim"],
+            ).pack(anchor="w", pady=12)
+            return
+
+        def card(parent, label, value, color, font):
+            box = ctk.CTkFrame(parent, fg_color=C["card"], border_width=1, border_color=C["border"])
+            ctk.CTkLabel(box, text=label.upper(), font=FONT_SM, text_color=C["dim"]).pack(anchor="w", padx=16, pady=(12, 0))
+            ctk.CTkLabel(box, text=value, font=font, text_color=color).pack(anchor="w", padx=16, pady=(2, 14))
+            return box
+
+        card(wrap, "Market cap", fmt_usd(market.get("market_cap")), C["bright"], FONT_HUGE).pack(fill="x", pady=4)
+        card(wrap, "Price", fmt_price(market.get("price_usd")), C["bright"], FONT_HUGE).pack(fill="x", pady=4)
+
+        chg = market.get("change_24h")
+        if chg is None:
+            chg_text, chg_color = "n/a", C["bright"]
+        else:
+            chg_text, chg_color = f"{chg:+.2f}%", (C["green"] if chg >= 0 else C["red"])
+        cells = [
+            ("Liquidity", fmt_usd(market.get("liquidity_usd")), C["bright"]),
+            ("24h volume", fmt_usd(market.get("volume_24h")), C["bright"]),
+            ("24h change", chg_text, chg_color),
+        ]
+        grid = ctk.CTkFrame(wrap, fg_color=C["bg"])
+        grid.pack(fill="x", pady=4)
+        for col in range(3):
+            grid.grid_columnconfigure(col, weight=1, uniform="market")
+        for col, (label, value, color) in enumerate(cells):
+            card(grid, label, value, color, FONT_LARGE).grid(
+                row=0, column=col, sticky="nsew",
+                padx=(0 if col == 0 else 4, 0 if col == 2 else 4),
+            )
+
+        src = "source: DexScreener" + (f"  ·  pair on {market['dex']}" if market.get("dex") else "")
+        ctk.CTkLabel(wrap, text=src, font=FONT_TINY, text_color=C["dim"]).pack(anchor="w", pady=(10, 2))
+        url = market.get("url") or ""
+        if safe_url(url):
+            ctk.CTkButton(
+                wrap, text="OPEN ON DEXSCREENER →", font=FONT_SM,
+                fg_color=C["neon"], hover_color=C["border"], text_color="#00050d",
+                command=lambda u=url: self._open(u),
+            ).pack(anchor="w", pady=(2, 10))
 
     def _render_token(self):
         tab = self.tabs.tab("TOKEN")
@@ -363,7 +437,8 @@ class App(ctk.CTk):
         tallies = self.data.get("tallies", [])
         for idx, poll in enumerate(polls):
             tally = tallies[idx] if idx < len(tallies) else ([0] * len(poll["choices"]), 0)
-            self._render_poll_card(wrap, poll, now, tally, detailed=(idx == 0))
+            # Alterado para True em todos os polls para mostrar os detalhes e percentagens em todos
+            self._render_poll_card(wrap, poll, now, tally, detailed=True)
 
     def _render_poll_card(self, wrap, poll, now, tally, detailed):
         card = ctk.CTkFrame(wrap, fg_color=C["card"], border_width=1, border_color=C["border"])
@@ -390,7 +465,7 @@ class App(ctk.CTk):
 
         leading_idx = max(range(len(balances)), key=lambda i: balances[i]) if total > 0 else 0
         for i, choice in enumerate(poll["choices"]):
-            bal = balances[i]
+            bal = balances[i] if i < len(balances) else 0
             pct = (bal * 100.0 / total) if total > 0 else 0.0
             winner = i == leading_idx and total > 0
             row = ctk.CTkFrame(card, fg_color=C["bg"], border_width=1, border_color=C["green"] if winner else C["border"])
@@ -414,6 +489,40 @@ class App(ctk.CTk):
             font=FONT_TINY, text_color=C["dim"], wraplength=840, justify="left",
         ).pack(anchor="w", padx=12, pady=(6, 10))
 
+    def _render_announcements(self):
+        tab = self.tabs.tab("ANNOUNCEMENTS")
+        self._clear(tab)
+        wrap = ctk.CTkScrollableFrame(tab, fg_color=C["bg"])
+        wrap.pack(fill="both", expand=True)
+
+        items = self.data.get("announcements", [])
+        if not items:
+            ctk.CTkLabel(wrap, text="no announcement accounts on-chain", font=FONT, text_color=C["dim"]).pack(anchor="w", pady=8)
+            return
+
+        for ann in items:
+            card = ctk.CTkFrame(wrap, fg_color=C["card"], border_width=1, border_color=C["border"])
+            card.pack(fill="x", pady=5)
+            ctk.CTkLabel(
+                card, text=f"◈ {ann['title']}", font=("Courier New", 14, "bold"),
+                text_color=C["neon"], wraplength=820, justify="left",
+            ).pack(anchor="w", padx=12, pady=(10, 2))
+            ctk.CTkLabel(
+                card,
+                text=f"{fmt_ts(ann['timestamp'])}  ·  by {short(ann['authority'])}  ·  acct {ann['account']}",
+                font=FONT_TINY, text_color=C["dim"], wraplength=820, justify="left",
+            ).pack(anchor="w", padx=12, pady=(0, 6))
+            ctk.CTkLabel(
+                card, text=ann["body"], font=FONT_SM, text_color=C["text"],
+                wraplength=820, justify="left",
+            ).pack(anchor="w", padx=12, pady=(0, 8))
+            ctk.CTkButton(
+                card, text="COPY", width=62, height=22, font=FONT_TINY,
+                fg_color="transparent", hover_color=C["border"], text_color=C["dim"],
+                border_width=1, border_color=C["border"],
+                command=lambda a=ann: self._copy(f"{a['title']}\n\n{a['body']}"),
+            ).pack(anchor="e", padx=12, pady=(0, 10))
+
     def _render_about(self):
         tab = self.tabs.tab("ABOUT")
         self._clear(tab)
@@ -421,18 +530,13 @@ class App(ctk.CTk):
         wrap.pack(fill="both", expand=True)
 
         ctk.CTkLabel(wrap, text="CYBERLEEKVIEWER", font=("Courier New", 22, "bold"), text_color=C["neon"]).pack(anchor="w", pady=(8, 2))
-        ctk.CTkLabel(wrap, text=f"v{APP_VERSION}  ·  by ZeroHackz", font=FONT_SM, text_color=C["dim"]).pack(anchor="w")
+        ctk.CTkLabel(wrap, text=f"v{APP_VERSION}  ·  by n0ne", font=FONT_SM, text_color=C["dim"]).pack(anchor="w")
         ctk.CTkLabel(
             wrap,
             text="A desktop chain viewer for the CYBERLEEK site — reads everything straight from "
             "Solana mainnet RPC. No website, no backend, no wallet connect.",
             font=FONT_SM, text_color=C["text"], wraplength=840, justify="left",
         ).pack(anchor="w", pady=(4, 10))
-        ctk.CTkButton(
-            wrap, text="View on GitHub →", font=FONT_SM,
-            fg_color=C["neon"], hover_color=C["border"], text_color="#00050d",
-            command=lambda: self._open(GITHUB_URL),
-        ).pack(anchor="w", pady=(0, 14))
 
         cfg = self.data["config"] or {}
         about = (cfg.get("about") or "").strip()
