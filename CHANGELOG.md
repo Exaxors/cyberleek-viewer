@@ -28,8 +28,8 @@ Versions use the date format of the original (`YYYYMMDD`).
 - `RpcClient.get_json()` helper for the off-chain price request.
 
 ### Changed
-- About page: version updated to `v20261011`, author line changed to `by n0ne`,
-  and the (obsolete) "View on GitHub" button removed.
+- About page: version updated to `v20261011`, author line changed to `by n0ne`.
+- Default selected tab on first load is now **ANNOUNCEMENTS**.
 - `RpcClient.get_program_accounts()` – `data_size` is now optional.
 - TOKEN tab no longer contains market data (moved to the MARKET tab).
 - Tab order: `MARKET, TOKEN, TRADE, LEEKS, POLL, ANNOUNCEMENTS, ABOUT`.

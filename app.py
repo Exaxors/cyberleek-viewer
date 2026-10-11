@@ -52,6 +52,7 @@ FONT_LARGE = ("Courier New", 26, "bold")
 AUTO_REFRESH_MS = 90_000
 
 APP_VERSION = "20261011"
+GITHUB_URL = "https://github.com/Exaxors/cyberleek-viewer"
 
 ICON_PATH = Path(__file__).resolve().parent / "assets" / "icon.ico"
 
@@ -148,7 +149,7 @@ class App(ctk.CTk):
         for name in ("MARKET", "TOKEN", "TRADE", "LEEKS", "POLL", "ANNOUNCEMENTS", "ABOUT"):
             frame = self.tabs.add(name)
             frame.configure(fg_color=C["bg"])
-
+        
         self.statusbar = ctk.CTkLabel(self, text="", font=FONT_TINY, text_color=C["dark"], anchor="w")
         self.statusbar.pack(fill="x", padx=18, pady=(0, 10))
 
@@ -194,6 +195,9 @@ class App(ctk.CTk):
             return
         self.data = result
         self.status.configure(text="system online", text_color=C["green"])
+        if not getattr(self, "_tab_initialized", False):
+            self.tabs.set("ANNOUNCEMENTS")
+            self._tab_initialized = True
         self._render_market()
         self._render_token()
         self._render_trade()
@@ -530,13 +534,18 @@ class App(ctk.CTk):
         wrap.pack(fill="both", expand=True)
 
         ctk.CTkLabel(wrap, text="CYBERLEEKVIEWER", font=("Courier New", 22, "bold"), text_color=C["neon"]).pack(anchor="w", pady=(8, 2))
-        ctk.CTkLabel(wrap, text=f"v{APP_VERSION}  ·  by n0ne", font=FONT_SM, text_color=C["dim"]).pack(anchor="w")
+        ctk.CTkLabel(wrap, text=f"v{APP_VERSION}  ·  by n0ne, Exaxors", font=FONT_SM, text_color=C["dim"]).pack(anchor="w")
         ctk.CTkLabel(
             wrap,
             text="A desktop chain viewer for the CYBERLEEK site — reads everything straight from "
             "Solana mainnet RPC. No website, no backend, no wallet connect.",
             font=FONT_SM, text_color=C["text"], wraplength=840, justify="left",
         ).pack(anchor="w", pady=(4, 10))
+        ctk.CTkButton(
+            wrap, text="View on GitHub →", font=FONT_SM,
+            fg_color=C["neon"], hover_color=C["border"], text_color="#00050d",
+            command=lambda: self._open(GITHUB_URL),
+        ).pack(anchor="w", pady=(0, 14))
 
         cfg = self.data["config"] or {}
         about = (cfg.get("about") or "").strip()
