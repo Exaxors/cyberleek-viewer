@@ -534,7 +534,7 @@ class App(ctk.CTk):
         wrap.pack(fill="both", expand=True)
 
         ctk.CTkLabel(wrap, text="CYBERLEEKVIEWER", font=("Courier New", 22, "bold"), text_color=C["neon"]).pack(anchor="w", pady=(8, 2))
-        ctk.CTkLabel(wrap, text=f"v{APP_VERSION}  ·  by n0ne, Exaxors", font=FONT_SM, text_color=C["dim"]).pack(anchor="w")
+        ctk.CTkLabel(wrap, text=f"v{APP_VERSION}  ·  by ZeroHackz, n0ne, Exaxors", font=FONT_SM, text_color=C["dim"]).pack(anchor="w")
         ctk.CTkLabel(
             wrap,
             text="A desktop chain viewer for the CYBERLEEK site — reads everything straight from "
