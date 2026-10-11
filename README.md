@@ -10,7 +10,7 @@ for the MARKET tab (DexScreener's public API).
 > actively maintained. All credit for the original project goes to ZeroHackz.
 > See the [CHANGELOG](CHANGELOG.md) for what this fork adds.
 
-<img width="399" height="399" alt="teabag" src="screenshots/teabag.gif" />
+<img width="310" height="410" alt="teabag" src="screenshots/teabag.gif" />
 
 ## Screenshots
 
@@ -77,4 +77,48 @@ for the MARKET tab (DexScreener's public API).
 1. Install Python 3.10+ (tested with 3.13) and get the project:
    ```bash
    git clone https://github.com/Exaxors/cyberleek-viewer.git
-   cd cyberleek-viewer
+    cd cyberleek-viewer
+   ```
+2. First run — `launcher.bat` creates the virtual environment, installs
+   dependencies, and starts the app.
+3. To build the portable executable:
+   ```bat
+   build.bat
+   ```
+   The app folder lands in `dist\CyberleekViewer\`
+4. Enjoy the view.
+
+
+## Project layout
+
+```
+cyberleek-viewer/
+  app.py             # customtkinter GUI
+  cyberleek.py       # RPC client + on-chain decoders (no UI deps)
+  make_icon.py       # icon generator
+  cyberleek.spec     # PyInstaller spec
+  launcher.bat       # first-run setup + launch (no console window)
+  build.bat          # builds dist\CyberleekViewer\ + auto-zips it
+  smoke.py           # headless GUI smoke test
+  requirements.txt
+  assets/icon.ico    # app + exe icon
+  screenshots/
+  dist/              # build output (git-ignored, released via GitHub Releases)
+```
+
+## ⚖️ Disclaimer
+
+- **No Affiliation**: This project and its author are not affiliated,
+  associated, authorized, endorsed by, or in any way officially connected with
+  Rockstar Games, Take-Two Interactive, Cyberleek, or any of their subsidiaries
+  or affiliates.
+- **Educational & Research Purposes Only**: This is an independent viewer
+  provided solely for educational research into decentralized publishing
+  patterns; it only reads public on-chain data.
+- **Content Responsibility**: The author does not host, stream, generate, or
+  claim ownership of any third-party media, leaked content, or intellectual
+  property. All product names, logos, brands, and media mentioned or displayed
+  belong to their respective copyright holders.
+- **Use at Your Own Risk**: Software is provided "as is", without warranty of
+  any kind. You are solely responsible for ensuring compliance with your local
+  laws and host provider terms of service.
