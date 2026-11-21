@@ -403,15 +403,8 @@ class App(ctk.CTk):
                 row = ctk.CTkFrame(card, fg_color=C["bg"])
                 row.pack(fill="x", padx=10, pady=2)
                 color = C["green"] if is_magnet else C["neon"]
-                ctk.CTkLabel(
-                    row,
-                    text=f"▸ {item['label'][:44]}",
-                    font=FONT_SM,
-                    text_color=color,
-                    anchor="w",
-                    width=320,
-                ).pack(side="left", padx=8, pady=6)
-                ctk.CTkLabel(row, text=url, font=FONT_TINY, text_color=C["dim"], anchor="w").pack(side="left", padx=8, pady=6)
+                # Buttons are packed FIRST so a very long link (e.g. a magnet with trackers)
+                # can never push them out of view; only the shortened text is clipped.
                 ctk.CTkButton(
                     row, text="OPEN", width=62, font=FONT_TINY, height=24,
                     fg_color=color, hover_color=C["border"], text_color="#00050d",
@@ -422,8 +415,18 @@ class App(ctk.CTk):
                     row, text="COPY", width=62, font=FONT_TINY, height=24,
                     fg_color="transparent", hover_color=C["border"], text_color=color,
                     border_width=1, border_color=color,
-                    command=lambda u=url: self._copy(u),
+                    command=lambda u=url: self._copy(u),  # always copies the FULL link
                 ).pack(side="right", padx=4)
+                ctk.CTkLabel(
+                    row,
+                    text=f"▸ {item['label'][:44]}",
+                    font=FONT_SM,
+                    text_color=color,
+                    anchor="w",
+                    width=320,
+                ).pack(side="left", padx=8, pady=6)
+                shown = url if len(url) <= 56 else url[:55] + "…"
+                ctk.CTkLabel(row, text=shown, font=FONT_TINY, text_color=C["dim"], anchor="w").pack(side="left", padx=8, pady=6)
 
     def _render_poll(self):
         tab = self.tabs.tab("POLL")
