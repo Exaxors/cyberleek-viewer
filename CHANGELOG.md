@@ -3,6 +3,15 @@
 This is a fork of [ZeroHackz/cyberleek-viewer](https://github.com/ZeroHackz/cyberleek-viewer).
 Versions use the date format of the original (`YYYYMMDD`).
 
+## [20261121] - 2026-11-21
+
+### Fixed
+- **LEEKS tab: long links no longer hide the COPY and OPEN buttons.** Links such as magnet
+  URIs with trackers were wider than the window and pushed the buttons out of view.
+  The buttons are now laid out first, the link is shortened on screen (with "…"), and
+  **COPY** / **OPEN** still use the full, unshortened link.
+
+
 ## [20261011] - 2026-10-11
 
 ### Added
